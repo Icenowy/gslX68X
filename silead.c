@@ -59,6 +59,8 @@
 #define SILEAD_DP_XY_SWAP	"touchscreen-swapped-x-y"
 #define SILEAD_DP_X_MAX		"touchscreen-size-x"
 #define SILEAD_DP_Y_MAX		"touchscreen-size-y"
+#define SILEAD_DP_X_FUZZ	"touchscreen-fuzz-x"
+#define SILEAD_DP_Y_FUZZ	"touchscreen-fuzz-y"
 #define SILEAD_DP_MAX_FINGERS	"touchscreen-max-fingers"
 #define SILEAD_DP_FW_NAME	"touchscreen-fw-name"
 #define SILEAD_DP_BROKEN_STATUS	"silead,broken-status"
@@ -86,6 +88,8 @@ struct silead_ts_data {
 	char fw_name[I2C_NAME_SIZE];
 	u32 x_max;
 	u32 y_max;
+	u32 x_fuzz;
+	u32 y_fuzz;
 	u32 max_fingers;
 	bool x_invert;
 	bool y_invert;
@@ -115,14 +119,14 @@ static int silead_ts_request_input_dev(struct silead_ts_data *data)
 
 	if (!data->xy_swap) {
 		input_set_abs_params(data->input, ABS_MT_POSITION_X, 0,
-				     data->x_max, 0, 0);
+				     data->x_max, data->x_fuzz, 0);
 		input_set_abs_params(data->input, ABS_MT_POSITION_Y, 0,
-				     data->y_max, 0, 0);
+				     data->y_max, data->y_fuzz, 0);
 	} else {
 		input_set_abs_params(data->input, ABS_MT_POSITION_X, 0,
-				     data->y_max, 0, 0);
+				     data->y_max, data->y_fuzz, 0);
 		input_set_abs_params(data->input, ABS_MT_POSITION_Y, 0,
-				     data->x_max, 0, 0);
+				     data->x_max, data->x_fuzz, 0);
 	}
 
 	input_mt_init_slots(data->input, data->max_fingers,
@@ -452,6 +456,16 @@ static int silead_ts_read_props(struct i2c_client *client)
 		data->y_max = SILEAD_MAX_Y;
 	}
 	data->y_max--; /* Property contains size not max */
+
+	error = device_property_read_u32(dev, SILEAD_DP_X_FUZZ, &data->x_fuzz);
+	if (error) {
+		data->x_fuzz = 0;
+	}
+
+	error = device_property_read_u32(dev, SILEAD_DP_Y_FUZZ, &data->y_fuzz);
+	if (error) {
+		data->y_fuzz = 0;
+	}
 
 	error = device_property_read_u32(dev, SILEAD_DP_MAX_FINGERS,
 					 &data->max_fingers);
