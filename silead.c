@@ -61,6 +61,7 @@
 #define SILEAD_DP_Y_MAX		"touchscreen-size-y"
 #define SILEAD_DP_MAX_FINGERS	"touchscreen-max-fingers"
 #define SILEAD_DP_FW_NAME	"touchscreen-fw-name"
+#define SILEAD_DP_BROKEN_STATUS	"silead,broken-status"
 #define SILEAD_PWR_GPIO_NAME	"power"
 
 #define SILEAD_CMD_SLEEP_MIN	10000
@@ -89,6 +90,7 @@ struct silead_ts_data {
 	bool x_invert;
 	bool y_invert;
 	bool xy_swap;
+	bool broken_status;
 	u32 chip_id;
 	struct input_mt_pos pos[SILEAD_MAX_FINGERS];
 	int slots[SILEAD_MAX_FINGERS];
@@ -413,7 +415,7 @@ static int silead_ts_setup(struct i2c_client *client)
 		return error;
 
 	status = silead_ts_get_status(client);
-	if (status != SILEAD_STATUS_OK) {
+	if (status != SILEAD_STATUS_OK && !data->broken_status) {
 		dev_err(dev, "Initialization error, status: 0x%X\n", status);
 		return -ENODEV;
 	}
@@ -466,10 +468,11 @@ static int silead_ts_read_props(struct i2c_client *client)
 	data->x_invert = device_property_read_bool(dev, SILEAD_DP_X_INVERT);
 	data->y_invert = device_property_read_bool(dev, SILEAD_DP_Y_INVERT);
 	data->xy_swap = device_property_read_bool(dev, SILEAD_DP_XY_SWAP);
+	data->broken_status = device_property_read_bool(dev, SILEAD_DP_BROKEN_STATUS);
 
-	dev_dbg(dev, "x_max = %d, y_max = %d, max_fingers = %d, x_invert = %d, y_invert = %d, xy_swap = %d",
+	dev_dbg(dev, "x_max = %d, y_max = %d, max_fingers = %d, x_invert = %d, y_invert = %d, xy_swap = %d, broken_status = %d",
 		data->x_max, data->y_max, data->max_fingers, data->x_invert,
-		data->y_invert, data->xy_swap);
+		data->y_invert, data->xy_swap, data->broken_status);
 
 	return 0;
 }
@@ -581,6 +584,7 @@ static int __maybe_unused silead_ts_suspend(struct device *dev)
 static int __maybe_unused silead_ts_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
+	struct silead_ts_data *data = i2c_get_clientdata(client);
 	int error, status;
 
 	silead_ts_set_power(client, SILEAD_POWER_ON);
@@ -594,7 +598,7 @@ static int __maybe_unused silead_ts_resume(struct device *dev)
 		return error;
 
 	status = silead_ts_get_status(client);
-	if (status != SILEAD_STATUS_OK) {
+	if (status != SILEAD_STATUS_OK && !data->broken_status) {
 		dev_err(dev, "Resume error, status: 0x%X\n", status);
 		return -ENODEV;
 	}
